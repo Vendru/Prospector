@@ -1,0 +1,365 @@
+@page "/players/{Id:int}"
+@attribute [Authorize]
+@inject PlayerApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>@(_player?.Name ?? "Prospecto") — Prospector</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+}
+else if (_player is null)
+{
+    <MudAlert Severity="Severity.Error">Prospecto não encontrado.</MudAlert>
+}
+else
+{
+    <!-- Admin actions -->
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <div class="d-flex gap-2 justify-end mb-4">
+                <MudButton Href="@($"/players/{Id}/edit")"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
+                    Editar
+                </MudButton>
+                <MudButton OnClick="ConfirmDelete"
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">
+                    Excluir
+                </MudButton>
+            </div>
+            @if (_showDeleteConfirm)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-4"
+                          Style="border:1px solid rgba(248,81,73,0.4);">
+                    <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+                        <MudText>Tem certeza que deseja excluir <strong>@_player!.Name</strong>? Esta ação não pode ser desfeita.</MudText>
+                        <div class="d-flex gap-2">
+                            <MudButton OnClick="@(() => _showDeleteConfirm = false)"
+                                       Variant="Variant.Text" Size="Size.Small">Cancelar</MudButton>
+                            <MudButton OnClick="DeletePlayer" Color="Color.Error"
+                                       Variant="Variant.Filled" Size="Size.Small" Disabled="_deleting">
+                                @if (_deleting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+                                Confirmar Exclusão
+                            </MudButton>
+                        </div>
+                    </div>
+                </MudAlert>
+            }
+        </Authorized>
+    </AuthorizeView>
+
+    <!-- Header -->
+    <div class="d-flex align-start gap-4 mb-6 flex-wrap">
+        <MudAvatar Style="width:80px; height:80px; font-size:1.8rem; font-weight:700; background: linear-gradient(135deg, #4FC3F7, #0288D1); color: #0D1117; flex-shrink:0;">
+            #@(_player.JerseyNumber?.ToString() ?? _player.Name[..1])
+        </MudAvatar>
+        <div class="flex-1">
+            <div class="d-flex align-center gap-3 flex-wrap">
+                <MudText Typo="Typo.h3" Style="font-weight:700; line-height:1.1;">@_player.Name</MudText>
+                @if (_player.ProjectedRound == 1)
+                {
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Style="font-weight:600;">1ª Rodada</MudChip>
+                }
+            </div>
+            <MudText Typo="Typo.h6" Class="mt-1" Style="color: rgba(230,237,243,0.7); font-weight:400;">
+                @_player.School · @_player.Conference
+            </MudText>
+            <div class="d-flex gap-2 mt-2 flex-wrap">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@HeightStr</MudChip>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@_player.WeightLbs lbs</MudChip>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Draft @_player.DraftClassYear</MudChip>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@_player.HomeTown, @_player.HomeState</MudChip>
+            </div>
+        </div>
+        <div class="d-flex gap-3 flex-wrap">
+            @if (_player.OverallGrade.HasValue)
+            {
+                <GradeBadge Grade="@_player.OverallGrade.Value" Label="OVERALL" Large="true" />
+            }
+            @if (_player.CeilingGrade.HasValue)
+            {
+                <GradeBadge Grade="@_player.CeilingGrade.Value" Label="CEILING" Large="true" />
+            }
+            @if (_player.FloorGrade.HasValue)
+            {
+                <GradeBadge Grade="@_player.FloorGrade.Value" Label="FLOOR" Large="true" />
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_player.Bio))
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="0"
+                  Style="background: rgba(79,195,247,0.06); border: 1px solid rgba(79,195,247,0.2); border-radius:8px;">
+            <MudText Typo="Typo.body1" Style="line-height:1.7;">@_player.Bio</MudText>
+        </MudPaper>
+    }
+
+    <!-- Tabs -->
+    <MudTabs Rounded="true" Border="true" ApplyEffectsToContainer="true" Class="mb-4"
+             PanelClass="pa-0 pt-4"
+             Style="--mud-palette-background: transparent;">
+        <!-- Estatísticas -->
+        <MudTabPanel Text="Estatísticas" Icon="@Icons.Material.Filled.BarChart">
+            @if (_player.SeasonStats.Any())
+            {
+                <!-- Season progression chart -->
+                <MudPaper Class="pa-4 mb-4" Elevation="0"
+                          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+                    <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Evolução por Temporada</MudText>
+                    <MudChart ChartType="ChartType.Line"
+                              ChartSeries="@_lineSeries"
+                              XAxisLabels="@_lineLabels"
+                              Width="100%" Height="220px"
+                              ChartOptions="@_lineOptions" />
+                </MudPaper>
+
+                <!-- Stats table -->
+                <MudTable Items="_player.SeasonStats.OrderByDescending(s => s.Year)"
+                          Dense="true" Hover="true" Striped="false"
+                          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+                    <HeaderContent>
+                        <MudTh>ANO</MudTh><MudTh>GP</MudTh><MudTh>ATT</MudTh><MudTh>COMP</MudTh>
+                        <MudTh>COMP%</MudTh><MudTh>YDS</MudTh><MudTh>TD</MudTh><MudTh>INT</MudTh>
+                        <MudTh>YPA</MudTh><MudTh>RUSH YDS</MudTh><MudTh>RUSH TD</MudTh><MudTh>QBR</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Year</MudTd>
+                        <MudTd>@context.GamesPlayed</MudTd>
+                        <MudTd>@context.Attempts</MudTd>
+                        <MudTd>@context.Completions</MudTd>
+                        <MudTd><strong>@context.CompletionPct.ToString("F1")%</strong></MudTd>
+                        <MudTd>@context.PassingYards.ToString("N0")</MudTd>
+                        <MudTd Style="color: #56D364;">@context.PassingTDs</MudTd>
+                        <MudTd Style="color: #F85149;">@context.Interceptions</MudTd>
+                        <MudTd>@context.YardsPerAttempt.ToString("F1")</MudTd>
+                        <MudTd>@context.RushingYards.ToString("N0")</MudTd>
+                        <MudTd Style="color: #56D364;">@context.RushingTDs</MudTd>
+                        <MudTd><strong>@(context.Qbr?.ToString("F1") ?? "—")</strong></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudTabPanel>
+
+        <!-- Métricas Avançadas -->
+        <MudTabPanel Text="Métricas Avançadas" Icon="@Icons.Material.Filled.Analytics">
+            @if (_player.SeasonStats.Any())
+            {
+                var latest = _player.SeasonStats.OrderByDescending(s => s.Year).First();
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="0"
+                                  Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+                            <MudText Typo="Typo.subtitle2" Class="mb-3" Style="color: rgba(230,237,243,0.55); letter-spacing:1px;">MÉTRICAS DE EFICIÊNCIA (@latest.Year)</MudText>
+                            <AdvMetricRow Label="EPA Total" Value="@(latest.Epa?.ToString("F1") ?? "—")" Description="Expected Points Added" Color="@GetMetricColor(latest.Epa, 80, 130)" />
+                            <AdvMetricRow Label="EPA/Play" Value="@(latest.EpaPerPlay?.ToString("F3") ?? "—")" Description="EPA por jogada" Color="@GetMetricColor(latest.EpaPerPlay, 0.20, 0.30)" />
+                            <AdvMetricRow Label="CPOE" Value="@(latest.Cpoe.HasValue ? $"{latest.Cpoe:+0.0;-0.0}%" : "—")" Description="Completion % Over Expected" Color="@GetCpoeColor(latest.Cpoe)" />
+                            <AdvMetricRow Label="On-Target %" Value="@FmtPct(latest.OnTargetThrowPct, "F1")" Description="% de arremessos precisos" Color="@GetMetricColor(latest.OnTargetThrowPct, 72, 78)" />
+                            <AdvMetricRow Label="3rd Down Conv%" Value="@FmtPct(latest.ThirdDownConvPct, "F1")" Description="Conversão em 3º down" Color="@GetMetricColor(latest.ThirdDownConvPct, 44, 52)" />
+                            <AdvMetricRow Label="Red Zone Comp%" Value="@FmtPct(latest.RedZoneCompPct, "F1")" Description="Completion% na red zone" Color="@GetMetricColor(latest.RedZoneCompPct, 60, 70)" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="0"
+                                  Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+                            <MudText Typo="Typo.subtitle2" Class="mb-3" Style="color: rgba(230,237,243,0.55); letter-spacing:1px;">MÉTRICAS DE PROTEÇÃO (@latest.Year)</MudText>
+                            <AdvMetricRow Label="Pressure Rate" Value="@(latest.PressureRate.HasValue ? $"{latest.PressureRate * 100:F1}%" : "—")" Description="% de snaps sob pressão" Color="@GetPressureColor(latest.PressureRate)" />
+                            <AdvMetricRow Label="Sack Rate" Value="@(latest.SackRate.HasValue ? $"{latest.SackRate * 100:F1}%" : "—")" Description="% de sacks por drop-back" Color="@GetSackColor(latest.SackRate)" />
+                            <AdvMetricRow Label="Drop %" Value="@(latest.DropPct.HasValue ? $"{latest.DropPct * 100:F1}%" : "—")" Description="% de drops de receivers" Color="#9198A1" />
+                            <AdvMetricRow Label="Sacks" Value="@latest.Sacks.ToString()" Description="Total de sacks sofridos" Color="#9198A1" />
+                            <AdvMetricRow Label="Adj. YPA" Value="@latest.AdjYardsPerAttempt.ToString("F1")" Description="Yards/tentativa ajustado (TD/INT)" Color="@GetMetricColor(latest.AdjYardsPerAttempt, 8.0, 10.0)" />
+                            <AdvMetricRow Label="Passer Rating" Value="@(latest.PasserRating?.ToString("F1") ?? "—")" Description="Rating NCAA" Color="@GetMetricColor(latest.PasserRating, 150, 170)" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudTabPanel>
+
+        <!-- Scout Grades -->
+        <MudTabPanel Text="Scout Grades" Icon="@Icons.Material.Filled.Star">
+            @if (_player.ScoutGrade is not null)
+            {
+                var g = _player.ScoutGrade;
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="0"
+                                  Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08); height:380px;">
+                            <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight:600;">Perfil de Habilidades</MudText>
+                            <GradeRadarChart Grade="g" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="0"
+                                  Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+                            <MudText Typo="Typo.subtitle2" Class="mb-3" Style="color: rgba(230,237,243,0.55); letter-spacing:1px;">NOTAS INDIVIDUAIS</MudText>
+                            <GradeBar Label="Força de Braço" Value="@g.ArmStrength" />
+                            <GradeBar Label="Precisão" Value="@g.Accuracy" />
+                            <GradeBar Label="Bola Funda" Value="@g.DeepBallAccuracy" />
+                            <GradeBar Label="Footwork" Value="@g.Footwork" />
+                            <GradeBar Label="Mecânica" Value="@g.Mechanics" />
+                            <GradeBar Label="Tomada de Decisão" Value="@g.DecisionMaking" />
+                            <GradeBar Label="Pocket Presence" Value="@g.PocketPresence" />
+                            <GradeBar Label="Mobilidade" Value="@g.MobilityAgility" />
+                            <GradeBar Label="Liderança" Value="@g.Leadership" />
+                            <GradeBar Label="Football IQ" Value="@g.FootballIq" />
+                            <GradeBar Label="Velocidade de Release" Value="@g.ReleaseSpeed" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @if (!string.IsNullOrEmpty(g.Strengths) || !string.IsNullOrEmpty(g.Weaknesses))
+                {
+                    <MudGrid Class="mt-4">
+                        @if (!string.IsNullOrEmpty(g.Strengths))
+                        {
+                            <MudItem xs="12" md="6">
+                                <MudPaper Class="pa-4" Elevation="0"
+                                          Style="background: rgba(86,211,100,0.06); border: 1px solid rgba(86,211,100,0.2); border-radius:8px;">
+                                    <MudText Typo="Typo.subtitle2" Style="color:#56D364; font-weight:600; margin-bottom:8px;">PONTOS FORTES</MudText>
+                                    <MudText Typo="Typo.body2" Style="line-height:1.7;">@g.Strengths</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                        @if (!string.IsNullOrEmpty(g.Weaknesses))
+                        {
+                            <MudItem xs="12" md="6">
+                                <MudPaper Class="pa-4" Elevation="0"
+                                          Style="background: rgba(248,81,73,0.06); border: 1px solid rgba(248,81,73,0.2); border-radius:8px;">
+                                    <MudText Typo="Typo.subtitle2" Style="color:#F85149; font-weight:600; margin-bottom:8px;">PONTOS FRACOS</MudText>
+                                    <MudText Typo="Typo.body2" Style="line-height:1.7;">@g.Weaknesses</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+
+                @if (!string.IsNullOrEmpty(g.NflComparison))
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-4" Style="background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.3);">
+                        <strong>Comparação NFL:</strong> @g.NflComparison
+                    </MudAlert>
+                }
+            }
+        </MudTabPanel>
+
+        <!-- Medidas Físicas -->
+        @if (_player.LatestMeasurement is not null)
+        {
+            <MudTabPanel Text="Medidas Físicas" Icon="@Icons.Material.Filled.FitnessCenter">
+                @{ var m = _player.LatestMeasurement!; }
+                <MudGrid>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="40 Jardas" Value="@FmtSec(m.FortyYardDash, "F2")" Icon="@Icons.Material.Filled.DirectionsRun" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Salto Vertical" Value="@FmtIn(m.VerticalJump, "F1")" Icon="@Icons.Material.Filled.ArrowUpward" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Salto em Distância" Value="@FmtIn(m.BroadJump, "F0")" Icon="@Icons.Material.Filled.SwapHoriz" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Cone Drill" Value="@FmtSec(m.ThreeConeDrill, "F2")" Icon="@Icons.Material.Filled.Loop" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Shuttle Run" Value="@FmtSec(m.ShuttleRun, "F2")" Icon="@Icons.Material.Filled.Speed" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Tamanho da Mão" Value="@FmtIn(m.HandSizeInches, "F3")" Icon="@Icons.Material.Filled.PanTool" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Comprimento do Braço" Value="@FmtIn(m.ArmLengthInches, "F3")" Icon="@Icons.Material.Filled.Straighten" />
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="3">
+                        <MeasurementCard Label="Wingspan" Value="@FmtIn(m.WingSpanInches, "F1")" Icon="@Icons.Material.Filled.OpenWith" />
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+        }
+    </MudTabs>
+
+    <div class="d-flex gap-3 mt-4">
+        <MudButton OnClick="@(() => Nav.NavigateTo("/players"))"
+                   StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text">
+            Voltar à lista
+        </MudButton>
+        <MudButton Href="@($"/compare?ids={Id}")"
+                   StartIcon="@Icons.Material.Filled.CompareArrows" Variant="Variant.Outlined" Color="Color.Primary">
+            Comparar este prospecto
+        </MudButton>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PlayerDetailDto? _player;
+    private bool _loading = true;
+    private bool _showDeleteConfirm;
+    private bool _deleting;
+    private List<ChartSeries> _lineSeries = [];
+    private string[] _lineLabels = [];
+
+    private readonly ChartOptions _lineOptions = new()
+    {
+        YAxisTicks = 5,
+        LineStrokeWidth = 3,
+        InterpolationOption = InterpolationOption.Straight,
+        ChartPalette = ["#4FC3F7", "#FFB74D"],
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _player = await Api.GetPlayerAsync(Id);
+        if (_player is not null)
+        {
+            var ordered = _player.SeasonStats.OrderBy(s => s.Year).ToList();
+            _lineLabels = ordered.Select(s => s.Year.ToString()).ToArray();
+            _lineSeries =
+            [
+                new ChartSeries { Name = "QBR", Data = ordered.Select(s => s.Qbr ?? 0).ToArray() },
+                new ChartSeries { Name = "Comp%", Data = ordered.Select(s => s.CompletionPct).ToArray() },
+            ];
+        }
+        _loading = false;
+    }
+
+    private string HeightStr =>
+        $"{_player!.HeightInches / 12}'{_player.HeightInches % 12}\"";
+
+    private string GetMetricColor(double? val, double medium, double good) =>
+        val is null ? "#9198A1" :
+        val >= good ? "#56D364" :
+        val >= medium ? "#FFB74D" : "#F85149";
+
+    private string GetCpoeColor(double? v) =>
+        v is null ? "#9198A1" : v >= 4 ? "#56D364" : v >= 0 ? "#FFB74D" : "#F85149";
+
+    private string GetPressureColor(double? v) =>
+        v is null ? "#9198A1" : v <= 0.20 ? "#56D364" : v <= 0.28 ? "#FFB74D" : "#F85149";
+
+    private string GetSackColor(double? v) =>
+        v is null ? "#9198A1" : v <= 0.04 ? "#56D364" : v <= 0.07 ? "#FFB74D" : "#F85149";
+
+    private void ConfirmDelete() => _showDeleteConfirm = true;
+
+    private async Task DeletePlayer()
+    {
+        _deleting = true;
+        var ok = await Api.DeletePlayerAsync(Id);
+        if (ok)
+            Nav.NavigateTo("/players");
+        else
+        {
+            _deleting = false;
+            _showDeleteConfirm = false;
+        }
+    }
+
+    private static string FmtSec(double? v, string fmt) => v.HasValue ? v.Value.ToString(fmt) + "s" : "—";
+    private static string FmtIn(double? v, string fmt) => v.HasValue ? v.Value.ToString(fmt) + "\"" : "—";
+    private static string FmtPct(double? v, string fmt) => v.HasValue ? v.Value.ToString(fmt) + "%" : "—";
+}

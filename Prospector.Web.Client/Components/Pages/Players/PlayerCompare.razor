@@ -1,0 +1,242 @@
+@page "/compare"
+@attribute [Authorize]
+@inject PlayerApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Comparar Prospectos — Prospector</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-1" Style="font-weight:700;">Comparar Prospectos</MudText>
+<MudText Typo="Typo.body2" Class="mb-6" Style="color: rgba(230,237,243,0.55);">
+    Selecione até 4 prospectos para análise lado a lado
+</MudText>
+
+<!-- Player Selector -->
+<MudPaper Class="pa-4 mb-6" Elevation="0"
+          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+    <MudText Typo="Typo.subtitle2" Class="mb-3">Adicionar Prospecto</MudText>
+    <div class="d-flex gap-3 align-end flex-wrap">
+        <MudAutocomplete T="PlayerListDto" Label="Buscar prospecto" Dense="true" Variant="Variant.Outlined"
+                         SearchFunc="SearchPlayers" ToStringFunc="@(p => p?.Name ?? "")"
+                         ValueChanged="AddPlayer" AdornmentIcon="@Icons.Material.Filled.PersonAdd"
+                         Style="max-width:360px;" />
+        @if (_selected.Count > 0)
+        {
+            <MudButton OnClick="ClearAll" Variant="Variant.Text" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.ClearAll">
+                Limpar todos
+            </MudButton>
+        }
+    </div>
+    <!-- Selected chips -->
+    @if (_selected.Count > 0)
+    {
+        <div class="d-flex gap-2 flex-wrap mt-3">
+            @foreach (var p in _selected)
+            {
+                <MudChip T="PlayerDetailDto" OnClose="@(() => RemovePlayer(p))"
+                         Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                    @p.Name
+                </MudChip>
+            }
+        </div>
+    }
+</MudPaper>
+
+@if (_selected.Count < 2)
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0"
+              Style="background: #1C2128; border: 1px dashed rgba(230,237,243,0.15); border-radius:12px;">
+        <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Large"
+                 Style="color: rgba(230,237,243,0.3); font-size: 3rem;" />
+        <MudText Typo="Typo.body1" Class="mt-3" Style="color: rgba(230,237,243,0.55);">
+            Selecione pelo menos 2 prospectos acima para iniciar a comparação.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <!-- Overview Cards side-by-side -->
+    <MudGrid Class="mb-6">
+        @foreach (var p in _selected)
+        {
+            <MudItem xs="12" sm="6" md="@(12 / _selected.Count)">
+                <MudPaper Class="pa-4" Elevation="0"
+                          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08); text-align:center;">
+                    <MudAvatar Style="width:60px; height:60px; font-size:1.4rem; font-weight:700; background: linear-gradient(135deg, #4FC3F7, #0288D1); color: #0D1117; margin: 0 auto 12px;">
+                        #@(p.JerseyNumber?.ToString() ?? p.Name[..1])
+                    </MudAvatar>
+                    <MudText Typo="Typo.h6" Style="font-weight:700;">@p.Name</MudText>
+                    <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.55);">
+                        @p.School · Draft @p.DraftClassYear
+                    </MudText>
+                    <div class="d-flex justify-center gap-2 mt-2">
+                        @if (p.OverallGrade.HasValue) { <GradeBadge Grade="@p.OverallGrade.Value" Label="OVR" /> }
+                        @if (p.CeilingGrade.HasValue) { <GradeBadge Grade="@p.CeilingGrade.Value" Label="CEI" /> }
+                        @if (p.FloorGrade.HasValue) { <GradeBadge Grade="@p.FloorGrade.Value" Label="FLR" /> }
+                    </div>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <!-- Teto vs Piso chart -->
+    <MudPaper Class="pa-4 mb-6" Elevation="0"
+              Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+        <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Teto (Ceiling) vs Piso (Floor)</MudText>
+        <MudChart ChartType="ChartType.Bar"
+                  ChartSeries="@_ceilingSeries"
+                  XAxisLabels="@_ceilingLabels"
+                  Width="100%" Height="260px"
+                  ChartOptions="@_ceilingChartOptions" />
+    </MudPaper>
+
+    <!-- Scout Grade Radar -->
+    @if (_selected.All(p => p.ScoutGrade is not null))
+    {
+        <MudPaper Class="pa-4 mb-6" Elevation="0"
+                  Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+            <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Perfil de Habilidades (Scout Grades)</MudText>
+            <StatCompareChart Players="_selected" />
+        </MudPaper>
+    }
+
+    <!-- Stats comparison table -->
+    @if (LatestStats.Any())
+    {
+        <MudPaper Class="pa-4 mb-6" Elevation="0"
+                  Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+            <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Estatísticas da Última Temporada</MudText>
+            <div class="overflow-x-auto">
+                <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid rgba(230,237,243,0.12);">
+                            <th style="text-align:left; padding:8px; color:rgba(230,237,243,0.55);">MÉTRICA</th>
+                            @foreach (var (player, _) in LatestStats)
+                            {
+                                <th style="text-align:center; padding:8px; color:#4FC3F7;">@player.Name.Split(' ').Last()</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in GetCompareRows(LatestStats))
+                        {
+                            <tr style="border-bottom: 1px solid rgba(230,237,243,0.05);">
+                                <td style="padding:8px 8px; color:rgba(230,237,243,0.65);">@row.Label</td>
+                                @foreach (var (value, isTop) in row.Values)
+                                {
+                                    <td style="text-align:center; padding:8px; font-weight:@(isTop ? "700" : "400"); color:@(isTop ? "#56D364" : "#E6EDF3");">
+                                        @value
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </MudPaper>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "ids")] public int[]? InitialIds { get; set; }
+
+    private List<PlayerDetailDto> _selected = [];
+    private List<PlayerListDto> _allPlayers = [];
+    private List<ChartSeries> _ceilingSeries = [];
+    private string[] _ceilingLabels = [];
+
+    private readonly ChartOptions _ceilingChartOptions = new()
+    {
+        YAxisTicks = 5,
+        YAxisFormat = "0",
+        ChartPalette = ["#4FC3F7", "#F85149", "#FFB74D"],
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetPlayersAsync(new PlayerFilterRequest { PageSize = 100 });
+        _allPlayers = result?.Players.ToList() ?? [];
+
+        if (InitialIds?.Length > 0)
+        {
+            var details = await Api.GetPlayersForCompareAsync(InitialIds);
+            if (details is not null)
+                _selected = details.Take(4).ToList();
+
+            UpdateChartData();
+        }
+    }
+
+    private Task<IEnumerable<PlayerListDto>> SearchPlayers(string val)
+    {
+        IEnumerable<PlayerListDto> results = string.IsNullOrWhiteSpace(val)
+            ? _allPlayers.Take(10)
+            : _allPlayers.Where(p => p.Name.Contains(val, StringComparison.OrdinalIgnoreCase)).Take(10);
+        return Task.FromResult(results);
+    }
+
+    private async Task AddPlayer(PlayerListDto? dto)
+    {
+        if (dto is null || _selected.Any(p => p.Id == dto.Id) || _selected.Count >= 4) return;
+        var detail = await Api.GetPlayerAsync(dto.Id);
+        if (detail is not null)
+        {
+            _selected.Add(detail);
+            UpdateChartData();
+        }
+    }
+
+    private void RemovePlayer(PlayerDetailDto p)
+    {
+        _selected.Remove(p);
+        UpdateChartData();
+    }
+
+    private void ClearAll() { _selected.Clear(); _ceilingSeries.Clear(); _ceilingLabels = []; }
+
+    private void UpdateChartData()
+    {
+        _ceilingLabels = _selected.Select(p => p.Name.Split(' ').Last()).ToArray();
+        _ceilingSeries =
+        [
+            new ChartSeries { Name = "Ceiling", Data = _selected.Select(p => p.CeilingGrade ?? 0).ToArray() },
+            new ChartSeries { Name = "Overall", Data = _selected.Select(p => p.OverallGrade ?? 0).ToArray() },
+            new ChartSeries { Name = "Floor",   Data = _selected.Select(p => p.FloorGrade   ?? 0).ToArray() },
+        ];
+    }
+
+    private IEnumerable<CompareRow> GetCompareRows(List<(PlayerDetailDto Player, QBStatsDto? Stats)> data)
+    {
+        var rows = new List<(string Label, Func<QBStatsDto, double?> Val, string Fmt, bool HigherIsBetter)>
+        {
+            ("QBR", s => s.Qbr, "F1", true),
+            ("Completion %", s => s.CompletionPct, "F1", true),
+            ("YPA", s => s.YardsPerAttempt, "F1", true),
+            ("Adj. YPA", s => s.AdjYardsPerAttempt, "F1", true),
+            ("TD", s => s.PassingTDs, "F0", true),
+            ("INT", s => s.Interceptions, "F0", false),
+            ("EPA/Play", s => s.EpaPerPlay, "F3", true),
+            ("CPOE", s => s.Cpoe, "+0.0;-0.0", true),
+            ("On-Target %", s => s.OnTargetThrowPct, "F1", true),
+            ("Sack Rate", s => s.SackRate != null ? s.SackRate * 100 : null, "F1", false),
+            ("Pressure Rate", s => s.PressureRate != null ? s.PressureRate * 100 : null, "F1", false),
+            ("Rush YDS", s => s.RushingYards, "F0", true),
+        };
+
+        foreach (var (label, getter, fmt, hib) in rows)
+        {
+            var vals = data.Select(x => getter(x.Stats!)).ToList();
+            var topVal = hib ? vals.Max() : vals.Min();
+            yield return new CompareRow(label,
+                vals.Select(v => (v?.ToString(fmt) ?? "—", v.HasValue && v == topVal)).ToList());
+        }
+    }
+
+    private List<(PlayerDetailDto Player, QBStatsDto? Stats)> LatestStats =>
+        _selected
+            .Select(p => (Player: p, Stats: p.SeasonStats.OrderByDescending(s => s.Year).FirstOrDefault()))
+            .Where(x => x.Stats is not null)
+            .ToList();
+
+    private record CompareRow(string Label, List<(string Value, bool IsTop)> Values);
+}

@@ -1,0 +1,44 @@
+@using Prospector.Web.Client.Models
+
+<MudChart ChartType="ChartType.Bar"
+          ChartSeries="@_series"
+          XAxisLabels="@_labels"
+          Width="100%"
+          Height="260px"
+          ChartOptions="@_options" />
+
+@code {
+    [Parameter, EditorRequired] public ScoutGradeDto Grade { get; set; } = default!;
+
+    private List<ChartSeries> _series = [];
+    private string[] _labels = [];
+
+    private readonly ChartOptions _options = new()
+    {
+        YAxisTicks = 5,
+        YAxisFormat = "0",
+        ChartPalette = ["#4FC3F7"],
+        DisableLegend = true,
+    };
+
+    protected override void OnParametersSet()
+    {
+        var items = new (string Label, double Value)[]
+        {
+            ("Braço", Grade.ArmStrength),
+            ("Precisão", Grade.Accuracy),
+            ("Bola Funda", Grade.DeepBallAccuracy),
+            ("Footwork", Grade.Footwork),
+            ("Mecânica", Grade.Mechanics),
+            ("Decisão", Grade.DecisionMaking),
+            ("Pocket", Grade.PocketPresence),
+            ("Mobilidade", Grade.MobilityAgility),
+            ("Liderança", Grade.Leadership),
+            ("Football IQ", Grade.FootballIq),
+            ("Release", Grade.ReleaseSpeed),
+        };
+
+        _labels = items.Select(i => i.Label).ToArray();
+        _series = [new ChartSeries { Name = "Grade", Data = items.Select(i => i.Value).ToArray() }];
+    }
+}

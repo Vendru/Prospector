@@ -1,0 +1,192 @@
+@page "/players"
+@attribute [Authorize]
+@inject PlayerApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Prospectos — Prospector</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-6">
+    <div>
+        <MudText Typo="Typo.h4" Style="font-weight:700;">Prospectos</MudText>
+        <MudText Typo="Typo.body2" Style="color: rgba(230,237,243,0.55);">
+            @_total prospects catalogados
+        </MudText>
+    </div>
+    <div class="d-flex gap-2">
+        <MudButton Href="/players/create" StartIcon="@Icons.Material.Filled.PersonAdd"
+                   Variant="Variant.Filled" Color="Color.Primary">
+            Novo Prospecto
+        </MudButton>
+        <MudButton OnClick="GoToCompare" StartIcon="@Icons.Material.Filled.CompareArrows"
+                   Variant="Variant.Outlined" Color="Color.Primary"
+                   Disabled="@(_compareIds.Count < 2)">
+            Comparar@(_compareIds.Count > 0 ? $" ({_compareIds.Count})" : "")
+        </MudButton>
+    </div>
+</div>
+
+<!-- Filters -->
+<MudPaper Class="pa-4 mb-6" Elevation="0"
+          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_filter.Search" Label="Buscar por nome ou escola"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Variant="Variant.Outlined" Dense="true" Immediate="true"
+                          DebounceInterval="400" OnDebounceIntervalElapsed="() => ResetAndLoad()" />
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="int?" Value="_filter.DraftYear" Label="Classe Draft"
+                       Variant="Variant.Outlined" Dense="true" Clearable="true"
+                       ValueChanged="@(v => { _filter.DraftYear = v; ResetAndLoad(); })">
+                <MudSelectItem T="int?" Value="@((int?)null)">Todas</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)2025)">2025</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)2026)">2026</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)2027)">2027</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="string?" Value="_filter.Conference" Label="Conferência"
+                       Variant="Variant.Outlined" Dense="true" Clearable="true"
+                       ValueChanged="@(v => { _filter.Conference = v; ResetAndLoad(); })">
+                <MudSelectItem T="string?" Value="@((string?)null)">Todas</MudSelectItem>
+                @foreach (var conf in _conferences)
+                {
+                    <MudSelectItem T="string?" Value="@conf">@conf</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="int?" Value="_filter.ProjectedRound" Label="Round Projetado"
+                       Variant="Variant.Outlined" Dense="true" Clearable="true"
+                       ValueChanged="@(v => { _filter.ProjectedRound = v; ResetAndLoad(); })">
+                <MudSelectItem T="int?" Value="@((int?)null)">Todos</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)1)">1ª Rodada</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)2)">2ª Rodada</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)3)">3ª Rodada+</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="string" Value="_filter.SortBy" Label="Ordenar por"
+                       Variant="Variant.Outlined" Dense="true"
+                       ValueChanged="@(v => { _filter.SortBy = v; ResetAndLoad(); })">
+                @foreach (var (val, lbl) in _sortOptions)
+                {
+                    <MudSelectItem T="string" Value="@val">@lbl</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- Player Grid -->
+@if (_loading)
+{
+    <MudGrid>
+        @for (var i = 0; i < 6; i++)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="220px" Class="rounded-lg" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else if (_players.Count == 0)
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0"
+              Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08);">
+        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large"
+                 Style="color: rgba(230,237,243,0.3); font-size: 3rem;" />
+        <MudText Typo="Typo.h6" Class="mt-3" Style="color: rgba(230,237,243,0.55);">
+            Nenhum prospecto encontrado com os filtros selecionados.
+        </MudText>
+        <MudButton OnClick="ClearFilters" Variant="Variant.Text" Color="Color.Primary" Class="mt-2">
+            Limpar filtros
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudGrid>
+        @foreach (var player in _players)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <PlayerCard Player="player"
+                            OnClick="@(() => Nav.NavigateTo($"/players/{player.Id}"))"
+                            OnCompare="@(() => ToggleCompare(player.Id))"
+                            IsSelectedForCompare="@_compareIds.Contains(player.Id)" />
+            </MudItem>
+        }
+    </MudGrid>
+
+    @if (_totalPages > 1)
+    {
+        <div class="d-flex justify-center mt-6">
+            <MudPagination Color="Color.Primary" Count="_totalPages"
+                           Selected="_filter.Page"
+                           SelectedChanged="@(p => { _filter.Page = p; _ = LoadPlayers(); })"
+                           BoundaryCount="1" MiddleCount="3" />
+        </div>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery] public int? DraftYear { get; set; }
+
+    private static readonly string[] _conferences = ["SEC", "Big Ten", "Big 12", "ACC", "Pac-12", "Mountain West"];
+    private static readonly (string Value, string Label)[] _sortOptions =
+    [
+        ("OverallGrade", "Nota Geral"),
+        ("CeilingGrade", "Teto (Ceiling)"),
+        ("Name", "Nome"),
+        ("School", "Escola"),
+        ("DraftClassYear", "Classe Draft"),
+    ];
+
+    private PlayerFilterRequest _filter = new();
+    private List<PlayerListDto> _players = [];
+    private int _total;
+    private int _totalPages;
+    private bool _loading = true;
+    private HashSet<int> _compareIds = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (DraftYear.HasValue) _filter.DraftYear = DraftYear;
+        await LoadPlayers();
+    }
+
+    private async Task LoadPlayers()
+    {
+        _loading = true;
+        StateHasChanged();
+        var result = await Api.GetPlayersAsync(_filter);
+        if (result is not null)
+        {
+            _players = result.Players.ToList();
+            _total = result.Total;
+            _totalPages = result.TotalPages;
+        }
+        _loading = false;
+    }
+
+    private void ResetAndLoad() { _filter.Page = 1; _ = LoadPlayers(); }
+
+    private async Task ClearFilters()
+    {
+        _filter = new PlayerFilterRequest();
+        await LoadPlayers();
+    }
+
+    private void ToggleCompare(int id)
+    {
+        if (!_compareIds.Add(id)) _compareIds.Remove(id);
+        if (_compareIds.Count > 4) _compareIds.Remove(_compareIds.First());
+    }
+
+    private void GoToCompare()
+    {
+        var query = string.Join("&", _compareIds.Select(id => $"ids={id}"));
+        Nav.NavigateTo($"/compare?{query}");
+    }
+}

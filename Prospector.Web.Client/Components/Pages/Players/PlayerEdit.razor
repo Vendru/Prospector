@@ -1,0 +1,264 @@
+@page "/players/{Id:int}/edit"
+@attribute [Authorize(Roles = "Admin")]
+@inject PlayerApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Editar Prospecto — Prospector</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+}
+else if (_model is null)
+{
+    <MudAlert Severity="Severity.Error">Prospecto não encontrado.</MudAlert>
+}
+else
+{
+    <div class="d-flex align-center justify-space-between mb-6">
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:700;">Editar Prospecto</MudText>
+            <MudText Typo="Typo.body2" Style="color:rgba(230,237,243,0.55);">@_playerName</MudText>
+        </div>
+        <MudButton OnClick="@(() => Nav.NavigateTo($"/players/{Id}"))"
+                   StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text">
+            Voltar
+        </MudButton>
+    </div>
+
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+
+        <!-- Informações Básicas -->
+        <MudPaper Class="pa-6 mb-4" Elevation="0"
+                  Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+            <MudText Typo="Typo.subtitle2" Class="mb-4"
+                     Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+                INFORMAÇÕES BÁSICAS
+            </MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.Name" Label="Nome Completo *"
+                                  Variant="Variant.Outlined" FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.School" Label="Universidade *"
+                                  Variant="Variant.Outlined" FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="string" @bind-Value="_model.Conference" Label="Conferência *"
+                               Variant="Variant.Outlined">
+                        @foreach (var c in _conferences)
+                        {
+                            <MudSelectItem T="string" Value="@c">@c</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6" sm="4">
+                    <MudNumericField T="int" @bind-Value="_model.DraftClassYear"
+                                     Label="Classe Draft *" Variant="Variant.Outlined"
+                                     Min="2024" Max="2030" />
+                </MudItem>
+                <MudItem xs="6" sm="4">
+                    <MudNumericField T="int?" @bind-Value="_model.JerseyNumber"
+                                     Label="Número da Camisa" Variant="Variant.Outlined"
+                                     Min="1" Max="99" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.HomeTown" Label="Cidade de Origem"
+                                  Variant="Variant.Outlined" FullWidth="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_model.HomeState" Label="Estado"
+                                  Variant="Variant.Outlined" FullWidth="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- Físico -->
+        <MudPaper Class="pa-6 mb-4" Elevation="0"
+                  Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+            <MudText Typo="Typo.subtitle2" Class="mb-4"
+                     Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+                MEDIDAS FÍSICAS
+            </MudText>
+            <MudGrid>
+                <MudItem xs="6" sm="3">
+                    <MudNumericField T="int" @bind-Value="_heightFeet" Label="Pés"
+                                     Variant="Variant.Outlined" Min="5" Max="7"
+                                     Adornment="Adornment.End" AdornmentText="ft" />
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudNumericField T="int" @bind-Value="_heightInches" Label="Polegadas"
+                                     Variant="Variant.Outlined" Min="0" Max="11"
+                                     Adornment="Adornment.End" AdornmentText="in" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int" @bind-Value="_model.WeightLbs" Label="Peso *"
+                                     Variant="Variant.Outlined" Min="150" Max="350"
+                                     Adornment="Adornment.End" AdornmentText="lbs" />
+                </MudItem>
+            </MudGrid>
+            <MudText Typo="Typo.caption" Class="mt-2"
+                     Style="color:rgba(230,237,243,0.4);">
+                Altura calculada: @_heightFeet'@_heightInches" (@(_heightFeet * 12 + _heightInches) pol)
+            </MudText>
+        </MudPaper>
+
+        <!-- Avaliação -->
+        <MudPaper Class="pa-6 mb-4" Elevation="0"
+                  Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+            <MudText Typo="Typo.subtitle2" Class="mb-4"
+                     Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+                AVALIAÇÃO DE SCOUT
+            </MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="double?" @bind-Value="_model.OverallGrade"
+                                     Label="Nota Geral" Variant="Variant.Outlined"
+                                     Min="0" Max="100" Format="F1" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="double?" @bind-Value="_model.CeilingGrade"
+                                     Label="Teto (Ceiling)" Variant="Variant.Outlined"
+                                     Min="0" Max="100" Format="F1" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="double?" @bind-Value="_model.FloorGrade"
+                                     Label="Piso (Floor)" Variant="Variant.Outlined"
+                                     Min="0" Max="100" Format="F1" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="int?" @bind-Value="_model.ProjectedRound"
+                               Label="Round Projetado" Variant="Variant.Outlined" Clearable="true">
+                        @foreach (var (val, lbl) in _rounds)
+                        {
+                            <MudSelectItem T="int?" Value="@val">@lbl</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?" @bind-Value="_model.ProjectedPick"
+                                     Label="Pick Projetado" Variant="Variant.Outlined"
+                                     Min="1" Max="260" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.NflComparison" Label="Comparação NFL"
+                                  Variant="Variant.Outlined" FullWidth="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- Bio -->
+        <MudPaper Class="pa-6 mb-6" Elevation="0"
+                  Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+            <MudText Typo="Typo.subtitle2" Class="mb-4"
+                     Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+                BIO & NOTAS
+            </MudText>
+            <MudTextField @bind-Value="_model.Bio" Label="Bio" Variant="Variant.Outlined"
+                          Lines="4" FullWidth="true" />
+        </MudPaper>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        }
+
+        <div class="d-flex gap-3 justify-end">
+            <MudButton OnClick="@(() => Nav.NavigateTo($"/players/{Id}"))" Variant="Variant.Text">
+                Cancelar
+            </MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary" Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="_saving">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Salvar Alterações
+            </MudButton>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private static readonly string[] _conferences =
+    [
+        "SEC", "Big Ten", "Big 12", "ACC", "Pac-12",
+        "Mountain West", "American", "Conference USA",
+        "MAC", "Sun Belt", "Independente"
+    ];
+
+    private static readonly (int? Value, string Label)[] _rounds =
+    [
+        (1, "1ª Rodada"), (2, "2ª Rodada"), (3, "3ª Rodada"),
+        (4, "4ª Rodada"), (5, "5ª Rodada"), (6, "6ª Rodada"), (7, "7ª Rodada"),
+    ];
+
+    private CreatePlayerRequest? _model;
+    private string _playerName = "";
+    private int _heightFeet = 6;
+    private int _heightInches = 2;
+    private string? _error;
+    private bool _saving;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var player = await Api.GetPlayerAsync(Id);
+        if (player is null) { _loading = false; return; }
+
+        _playerName = player.Name;
+        _heightFeet = player.HeightInches / 12;
+        _heightInches = player.HeightInches % 12;
+
+        _model = new CreatePlayerRequest
+        {
+            Name = player.Name,
+            School = player.School,
+            Conference = player.Conference,
+            Position = player.Position,
+            DraftClassYear = player.DraftClassYear,
+            HeightInches = player.HeightInches,
+            WeightLbs = player.WeightLbs,
+            HomeTown = player.HomeTown ?? "",
+            HomeState = player.HomeState ?? "",
+            Bio = player.Bio,
+            NflComparison = player.NflComparison,
+            JerseyNumber = player.JerseyNumber,
+            ProjectedRound = player.ProjectedRound,
+            ProjectedPick = player.ProjectedPick,
+            OverallGrade = player.OverallGrade,
+            CeilingGrade = player.CeilingGrade,
+            FloorGrade = player.FloorGrade,
+        };
+
+        _loading = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_model is null) return;
+        if (string.IsNullOrWhiteSpace(_model.Name) || string.IsNullOrWhiteSpace(_model.School))
+        {
+            _error = "Nome e Universidade são obrigatórios.";
+            return;
+        }
+
+        _saving = true;
+        _error = null;
+        _model.HeightInches = _heightFeet * 12 + _heightInches;
+
+        var result = await Api.UpdatePlayerAsync(Id, _model);
+        if (result is not null)
+            Nav.NavigateTo($"/players/{Id}");
+        else
+            _error = "Erro ao salvar. Verifique se você tem permissão de administrador.";
+
+        _saving = false;
+    }
+}

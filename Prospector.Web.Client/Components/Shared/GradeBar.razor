@@ -1,0 +1,23 @@
+<div class="mb-2">
+    <div class="d-flex justify-space-between mb-1">
+        <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.65);">@Label</MudText>
+        <MudText Typo="Typo.caption" Style="@($"font-weight:600; color:{GradeColor}")">@Value.ToString("F0")</MudText>
+    </div>
+    <div style="height:6px; background:rgba(230,237,243,0.08); border-radius:3px; overflow:hidden;">
+        <div style="@($"height:100%; width:{Value}%; background:{GradeColor}; border-radius:3px; transition:width 0.8s ease;")" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = default!;
+    [Parameter, EditorRequired] public double Value { get; set; }
+
+    private string GradeColor => Value switch
+    {
+        >= 90 => "#56D364",
+        >= 80 => "#79C0FF",
+        >= 70 => "#FFB74D",
+        >= 60 => "#F0883E",
+        _ => "#F85149"
+    };
+}

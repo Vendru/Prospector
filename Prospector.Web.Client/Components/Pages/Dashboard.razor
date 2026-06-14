@@ -1,0 +1,184 @@
+@page "/"
+@attribute [Authorize]
+@inject PlayerApiService Api
+
+<PageTitle>Dashboard — Prospector</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-1" Style="font-weight:700;">Dashboard</MudText>
+<MudText Typo="Typo.body2" Class="mb-6" Style="color: rgba(230,237,243,0.55);">
+    Visão geral da base de prospectos de QB para o NFL Draft
+</MudText>
+
+@if (_loading)
+{
+    <MudGrid>
+        @for (var i = 0; i < 4; i++)
+        {
+            <MudItem xs="12" sm="6" md="3">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" Class="rounded-lg" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else if (_dashboard is not null)
+{
+    <!-- KPI Cards -->
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Icon="@Icons.Material.Filled.People" Label="Total de Prospectos"
+                      Value="@_dashboard.TotalProspects.ToString()" Color="Color.Primary" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Icon="@Icons.Material.Filled.Grade" Label="Nota Média (Overall)"
+                      Value="@_dashboard.AverageOverallGrade.ToString("F1")" Color="Color.Secondary" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Icon="@Icons.Material.Filled.TrendingUp" Label="Teto Médio (Ceiling)"
+                      Value="@_dashboard.AverageCeilingGrade.ToString("F1")" Color="Color.Success" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Icon="@Icons.Material.Filled.CalendarToday" Label="Classes de Draft"
+                      Value="@_dashboard.ProspectsByDraftClass.Count.ToString()" Color="Color.Info" />
+        </MudItem>
+    </MudGrid>
+
+    <!-- QBR Leaders + Draft class distribution -->
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4" Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08);" Elevation="0">
+                <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Top 5 por QBR</MudText>
+                <MudChart ChartType="ChartType.Bar"
+                          ChartSeries="@_qbrSeries"
+                          XAxisLabels="@_qbrLabels"
+                          Width="100%" Height="220px"
+                          ChartOptions="@_barOptions" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08);" Elevation="0">
+                <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Por Classe de Draft</MudText>
+                <MudChart ChartType="ChartType.Donut"
+                          InputData="@_draftData"
+                          InputLabels="@_draftLabels"
+                          Width="100%" Height="220px"
+                          ChartOptions="@_donutOptions" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Top Prospects list + EPA chart -->
+    <MudGrid>
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4" Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08);" Elevation="0">
+                <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Top Prospectos por Nota Geral</MudText>
+                <MudList T="PlayerListDto" Dense="true">
+                    @foreach (var (player, idx) in _dashboard.TopRatedPlayers.Select((p, i) => (p, i)))
+                    {
+                        <MudListItem OnClick="@(() => NavToPlayer(player.Id))"
+                                     Class="cursor-pointer rounded mb-1"
+                                     Style="@($"background: {(idx == 0 ? "rgba(79,195,247,0.08)" : "transparent")}")">
+                            <div class="d-flex align-center justify-space-between w-100">
+                                <div class="d-flex align-center gap-3">
+                                    <MudAvatar Style="@($"background:{GetRankColor(idx)}; color:#0D1117; font-weight:700; width:32px; height:32px; font-size:0.85rem;")">
+                                        #@(idx + 1)
+                                    </MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.body1" Style="font-weight:600; line-height:1.2;">@player.Name</MudText>
+                                        <MudText Typo="Typo.caption" Style="color:rgba(230,237,243,0.55);">
+                                            @player.School · @player.Conference · Draft @player.DraftClassYear
+                                        </MudText>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-center gap-2">
+                                    @if (player.OverallGrade.HasValue)
+                                    {
+                                        <GradeBadge Grade="@player.OverallGrade.Value" Label="OVR" />
+                                    }
+                                    @if (player.CeilingGrade.HasValue)
+                                    {
+                                        <GradeBadge Grade="@player.CeilingGrade.Value" Label="CEI" />
+                                    }
+                                </div>
+                            </div>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08);" Elevation="0">
+                <MudText Typo="Typo.subtitle1" Class="mb-4" Style="font-weight:600;">Top 5 por EPA</MudText>
+                <MudChart ChartType="ChartType.Bar"
+                          ChartSeries="@_epaSeries"
+                          XAxisLabels="@_epaLabels"
+                          Width="100%" Height="220px"
+                          ChartOptions="@_epaOptions" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private DashboardDto? _dashboard;
+    private bool _loading = true;
+
+    private List<ChartSeries> _qbrSeries = [];
+    private string[] _qbrLabels = [];
+    private List<ChartSeries> _epaSeries = [];
+    private string[] _epaLabels = [];
+    private double[] _draftData = [];
+    private string[] _draftLabels = [];
+
+    private readonly ChartOptions _barOptions = new()
+    {
+        YAxisTicks = 5,
+        YAxisFormat = "0.0",
+        ChartPalette = ["#4FC3F7"],
+        DisableLegend = true,
+    };
+
+    private readonly ChartOptions _epaOptions = new()
+    {
+        YAxisTicks = 5,
+        YAxisFormat = "0",
+        ChartPalette = ["#56D364"],
+        DisableLegend = true,
+    };
+
+    private readonly ChartOptions _donutOptions = new()
+    {
+        ChartPalette = ["#4FC3F7", "#FFB74D", "#56D364", "#F85149"],
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _dashboard = await Api.GetDashboardAsync();
+        if (_dashboard is not null)
+        {
+            var topQbr = _dashboard.TopByQbr.ToList();
+            _qbrLabels = topQbr.Select(p => p.Name.Split(' ').Last()).ToArray();
+            _qbrSeries = [new ChartSeries { Name = "QBR", Data = topQbr.Select(p => p.LatestStats?.Qbr ?? 0).ToArray() }];
+
+            var topEpa = _dashboard.TopByEpa.ToList();
+            _epaLabels = topEpa.Select(p => p.Name.Split(' ').Last()).ToArray();
+            _epaSeries = [new ChartSeries { Name = "EPA", Data = topEpa.Select(p => p.LatestStats?.Epa ?? 0).ToArray() }];
+
+            var classData = _dashboard.ProspectsByDraftClass.OrderBy(kv => kv.Key).ToList();
+            _draftLabels = classData.Select(kv => $"Draft {kv.Key}").ToArray();
+            _draftData = classData.Select(kv => (double)kv.Value).ToArray();
+        }
+        _loading = false;
+    }
+
+    private void NavToPlayer(int id) => Nav.NavigateTo($"/players/{id}");
+
+    private string GetRankColor(int idx) => idx switch
+    {
+        0 => "#FFB74D",
+        1 => "#9198A1",
+        2 => "#CD7F32",
+        _ => "#30363D"
+    };
+}

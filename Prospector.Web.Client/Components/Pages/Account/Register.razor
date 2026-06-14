@@ -1,0 +1,73 @@
+@page "/account/register"
+@layout Prospector.Web.Client.Components.Layout.AuthLayout
+@inject CookieAuthStateProvider AuthProvider
+@inject NavigationManager Nav
+
+<PageTitle>Cadastro — Prospector</PageTitle>
+
+<MudPaper Class="pa-8" Elevation="0"
+          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.1); border-radius:16px; max-width:420px; width:100%;">
+    <div class="text-center mb-6">
+        <MudText Typo="Typo.h5" Style="font-weight:700; color:#4FC3F7;">PROSPECTOR</MudText>
+        <MudText Typo="Typo.body2" Style="color: rgba(230,237,243,0.55);">Crie sua conta de scout</MudText>
+    </div>
+
+    <MudText Typo="Typo.h6" Class="mb-4" Style="font-weight:600;">Criar Conta</MudText>
+
+    <EditForm Model="_model" OnValidSubmit="HandleRegister">
+        <MudTextField @bind-Value="_model.DisplayName" Label="Nome" Variant="Variant.Outlined"
+                      Class="mb-4" FullWidth="true"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" />
+
+        <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined"
+                      InputType="InputType.Email" Class="mb-4" FullWidth="true"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+
+        <MudTextField @bind-Value="_model.Password" Label="Senha" Variant="Variant.Outlined"
+                      InputType="@(_showPw ? InputType.Text : InputType.Password)" Class="mb-6" FullWidth="true"
+                      HelperText="Mínimo 6 caracteres, 1 maiúscula, 1 número"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showPw ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _showPw = !_showPw)" />
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</MudAlert>
+        }
+
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                   FullWidth="true" Disabled="_loading" Size="Size.Large">
+            @if (_loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Criar Conta
+        </MudButton>
+    </EditForm>
+
+    <div class="text-center mt-4">
+        <MudText Typo="Typo.body2" Style="color: rgba(230,237,243,0.55);">
+            Já tem conta?
+            <MudLink Href="/account/login" Color="Color.Primary">Entrar</MudLink>
+        </MudText>
+    </div>
+</MudPaper>
+
+@code {
+    private RegisterRequest _model = new();
+    private string? _error;
+    private bool _loading;
+    private bool _showPw;
+
+    private async Task HandleRegister()
+    {
+        _loading = true;
+        _error = null;
+        var result = await AuthProvider.RegisterAsync(_model);
+        if (result.Success)
+            Nav.NavigateTo("/");
+        else
+            _error = result.Message;
+        _loading = false;
+    }
+}

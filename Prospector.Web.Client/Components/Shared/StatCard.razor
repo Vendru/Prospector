@@ -1,0 +1,37 @@
+<MudPaper Class="pa-4" Elevation="0"
+          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08); border-radius:12px;">
+    <div class="d-flex align-center gap-3">
+        <MudAvatar Style="@($"background: {BgColor}; color: {FgColor}; width:44px; height:44px;")">
+            <MudIcon Icon="@Icon" Size="Size.Small" />
+        </MudAvatar>
+        <div>
+            <MudText Typo="Typo.h5" Style="font-weight:700; line-height:1;">@Value</MudText>
+            <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.55);">@Label</MudText>
+        </div>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = default!;
+    [Parameter, EditorRequired] public string Label { get; set; } = default!;
+    [Parameter, EditorRequired] public string Value { get; set; } = default!;
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+
+    private string BgColor => Color switch
+    {
+        Color.Primary => "rgba(79,195,247,0.15)",
+        Color.Secondary => "rgba(255,183,77,0.15)",
+        Color.Success => "rgba(86,211,100,0.15)",
+        Color.Info => "rgba(121,192,255,0.15)",
+        _ => "rgba(145,152,161,0.15)"
+    };
+
+    private string FgColor => Color switch
+    {
+        Color.Primary => "#4FC3F7",
+        Color.Secondary => "#FFB74D",
+        Color.Success => "#56D364",
+        Color.Info => "#79C0FF",
+        _ => "#9198A1"
+    };
+}

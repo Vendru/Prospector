@@ -1,0 +1,40 @@
+@using Prospector.Web.Client.Models
+
+<MudChart ChartType="ChartType.Bar"
+          ChartSeries="@_series"
+          XAxisLabels="@_labels"
+          Width="100%"
+          Height="340px"
+          ChartOptions="@_options" />
+
+@code {
+    [Parameter, EditorRequired] public List<PlayerDetailDto> Players { get; set; } = [];
+
+    private List<ChartSeries> _series = [];
+    private string[] _labels = ["Braço", "Precisão", "Footwork", "Decisão", "Pocket", "Mobilidade", "Football IQ", "Liderança", "Release"];
+
+    private static readonly string[] Palette = ["#4FC3F7", "#FFB74D", "#56D364", "#F85149"];
+
+    private ChartOptions _options = new()
+    {
+        YAxisTicks = 5,
+        YAxisFormat = "0",
+        ChartPalette = Palette,
+    };
+
+    protected override void OnParametersSet()
+    {
+        _series = Players
+            .Where(p => p.ScoutGrade is not null)
+            .Select(p => new ChartSeries
+            {
+                Name = p.Name.Split(' ').Last(),
+                Data = [
+                    p.ScoutGrade!.ArmStrength, p.ScoutGrade.Accuracy, p.ScoutGrade.Footwork,
+                    p.ScoutGrade.DecisionMaking, p.ScoutGrade.PocketPresence, p.ScoutGrade.MobilityAgility,
+                    p.ScoutGrade.FootballIq, p.ScoutGrade.Leadership, p.ScoutGrade.ReleaseSpeed
+                ]
+            })
+            .ToList();
+    }
+}

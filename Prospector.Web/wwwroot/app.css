@@ -1,0 +1,125 @@
+/* =====================================================================
+   Prospector — Global Styles
+   ===================================================================== */
+
+:root {
+    --color-bg: #0D1117;
+    --color-surface: #1C2128;
+    --color-surface-2: #21262D;
+    --color-border: rgba(230, 237, 243, 0.08);
+    --color-text: #E6EDF3;
+    --color-text-muted: rgba(230, 237, 243, 0.55);
+    --color-primary: #4FC3F7;
+    --color-secondary: #FFB74D;
+    --color-success: #56D364;
+    --color-danger: #F85149;
+}
+
+html, body {
+    font-family: 'Inter', 'Roboto', sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    scroll-behavior: smooth;
+}
+
+/* ---- Player Card hover ---- */
+.player-card:hover {
+    border-color: rgba(79, 195, 247, 0.3) !important;
+    box-shadow: 0 4px 24px rgba(79, 195, 247, 0.08);
+    transform: translateY(-2px);
+}
+
+/* ---- Stat mini layout ---- */
+.stat-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* ---- MudBlazor overrides ---- */
+.mud-table-root {
+    background: transparent !important;
+}
+
+.mud-table-head th {
+    background: rgba(230, 237, 243, 0.04) !important;
+    font-size: 0.72rem;
+    letter-spacing: 0.8px;
+    color: rgba(230, 237, 243, 0.45) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--color-border) !important;
+}
+
+.mud-table-body tr:hover {
+    background: rgba(230, 237, 243, 0.03) !important;
+    cursor: pointer;
+}
+
+.mud-drawer {
+    background: var(--color-surface) !important;
+}
+
+.mud-nav-link {
+    border-radius: 8px !important;
+    margin: 2px 8px !important;
+    font-size: 0.875rem !important;
+}
+
+.mud-nav-link.active {
+    background: rgba(79, 195, 247, 0.1) !important;
+    color: var(--color-primary) !important;
+}
+
+.mud-chip {
+    border-radius: 6px !important;
+}
+
+.mud-tabs-header {
+    background: transparent !important;
+    border-bottom: 1px solid var(--color-border) !important;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(230, 237, 243, 0.15);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(230, 237, 243, 0.3);
+}
+
+/* ---- Blazor loading bar ---- */
+#blazor-error-ui {
+    background: #F85149;
+    color: white;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    z-index: 9999;
+    display: none;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+/* ---- Utility ---- */
+.cursor-pointer { cursor: pointer; }
+.rounded-lg { border-radius: 12px !important; }
+.overflow-x-auto { overflow-x: auto; }
+.w-100 { width: 100%; }

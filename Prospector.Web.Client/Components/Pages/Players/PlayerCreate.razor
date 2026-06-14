@@ -1,0 +1,363 @@
+@page "/players/create"
+@attribute [Authorize]
+@inject PlayerApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Novo Prospecto — Prospector</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-6">
+    <div>
+        <MudText Typo="Typo.h4" Style="font-weight:700;">Novo Prospecto</MudText>
+        <MudText Typo="Typo.body2" Style="color:rgba(230,237,243,0.55);">
+            Adicionar QB à base de dados
+        </MudText>
+    </div>
+    <MudButton OnClick="@(() => Nav.NavigateTo("/players"))"
+               StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Text">
+        Voltar
+    </MudButton>
+</div>
+
+<!-- CFBD Import Panel -->
+<MudPaper Class="pa-5 mb-6" Elevation="0"
+          Style="background:#161B22; border:1px solid rgba(79,195,247,0.25); border-radius:8px;">
+    <div class="d-flex align-center gap-2 mb-3">
+        <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Style="color:#4FC3F7;" />
+        <MudText Typo="Typo.subtitle2" Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+            IMPORTAR DA COLLEGE FOOTBALL DATA API
+        </MudText>
+    </div>
+    <MudText Typo="Typo.body2" Class="mb-3" Style="color:rgba(230,237,243,0.55);">
+        Busque um QB real para preencher o formulário automaticamente com stats oficiais.
+    </MudText>
+    <div class="d-flex gap-3 align-end flex-wrap">
+        <MudTextField @bind-Value="_cfbdSearch" Label="Nome do jogador"
+                      Variant="Variant.Outlined" Style="max-width:320px;"
+                      Placeholder="ex: Caleb Williams"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudButton OnClick="SearchCfbd" Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Search" Disabled="_cfbdSearching">
+            @if (_cfbdSearching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Buscar
+        </MudButton>
+    </div>
+
+    @if (_cfbdResults.Count > 0)
+    {
+        <MudList T="CfbdPlayerResult" Class="mt-3" Dense="true"
+                 Style="background:transparent; border:1px solid rgba(230,237,243,0.08); border-radius:6px; max-height:240px; overflow-y:auto;">
+            @foreach (var p in _cfbdResults)
+            {
+                <MudListItem T="CfbdPlayerResult" OnClick="@(() => ImportFromCfbd(p))" Style="cursor:pointer;">
+                    <div class="d-flex align-center justify-space-between">
+                        <div>
+                            <MudText Typo="Typo.body2" Style="font-weight:600;">@p.Name</MudText>
+                            <MudText Typo="Typo.caption" Style="color:rgba(230,237,243,0.55);">
+                                @p.Team @(p.Height.HasValue ? $"· {p.Height/12}'{p.Height%12}\"" : "") @(p.Weight.HasValue ? $"· {p.Weight} lbs" : "")
+                            </MudText>
+                        </div>
+                        @if (_cfbdImporting == p.Id)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                     Style="color:rgba(230,237,243,0.35);" />
+                        }
+                    </div>
+                </MudListItem>
+            }
+        </MudList>
+    }
+    else if (_cfbdSearched)
+    {
+        <MudText Typo="Typo.body2" Class="mt-3" Style="color:rgba(230,237,243,0.4);">
+            Nenhum QB encontrado com esse nome.
+        </MudText>
+    }
+
+    @if (!string.IsNullOrEmpty(_cfbdImportMessage))
+    {
+        <MudAlert Severity="@_cfbdImportSeverity" Class="mt-3" Dense="true">@_cfbdImportMessage</MudAlert>
+    }
+</MudPaper>
+
+<EditForm Model="_model" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+
+    <!-- Informações Básicas -->
+    <MudPaper Class="pa-6 mb-4" Elevation="0"
+              Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+        <MudText Typo="Typo.subtitle2" Class="mb-4"
+                 Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+            INFORMAÇÕES BÁSICAS
+        </MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Name" Label="Nome Completo *"
+                              Variant="Variant.Outlined" FullWidth="true"
+                              Placeholder="ex: Caleb Williams" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.School" Label="Universidade *"
+                              Variant="Variant.Outlined" FullWidth="true"
+                              Placeholder="ex: USC" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="string" @bind-Value="_model.Conference" Label="Conferência *"
+                           Variant="Variant.Outlined">
+                    @foreach (var c in _conferences)
+                    {
+                        <MudSelectItem T="string" Value="@c">@c</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" sm="4">
+                <MudNumericField T="int" @bind-Value="_model.DraftClassYear"
+                                 Label="Classe Draft *" Variant="Variant.Outlined"
+                                 Min="2024" Max="2030" />
+            </MudItem>
+            <MudItem xs="6" sm="4">
+                <MudNumericField T="int?" @bind-Value="_model.JerseyNumber"
+                                 Label="Número da Camisa" Variant="Variant.Outlined"
+                                 Min="1" Max="99" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.HomeTown" Label="Cidade de Origem"
+                              Variant="Variant.Outlined" FullWidth="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.HomeState" Label="Estado"
+                              Variant="Variant.Outlined" FullWidth="true"
+                              Placeholder="ex: CA" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Físico -->
+    <MudPaper Class="pa-6 mb-4" Elevation="0"
+              Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+        <MudText Typo="Typo.subtitle2" Class="mb-4"
+                 Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+            MEDIDAS FÍSICAS
+        </MudText>
+        <MudGrid>
+            <MudItem xs="6" sm="3">
+                <MudNumericField T="int" @bind-Value="_heightFeet" Label="Pés"
+                                 Variant="Variant.Outlined" Min="5" Max="7"
+                                 Adornment="Adornment.End" AdornmentText="ft" />
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudNumericField T="int" @bind-Value="_heightInches" Label="Polegadas"
+                                 Variant="Variant.Outlined" Min="0" Max="11"
+                                 Adornment="Adornment.End" AdornmentText="in" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="int" @bind-Value="_model.WeightLbs" Label="Peso *"
+                                 Variant="Variant.Outlined" Min="150" Max="350"
+                                 Adornment="Adornment.End" AdornmentText="lbs" />
+            </MudItem>
+        </MudGrid>
+        <MudText Typo="Typo.caption" Class="mt-2"
+                 Style="color:rgba(230,237,243,0.4);">
+            Altura calculada: @_heightFeet'@_heightInches" (@(_heightFeet * 12 + _heightInches) pol)
+        </MudText>
+    </MudPaper>
+
+    <!-- Avaliação -->
+    <MudPaper Class="pa-6 mb-4" Elevation="0"
+              Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+        <MudText Typo="Typo.subtitle2" Class="mb-4"
+                 Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+            AVALIAÇÃO DE SCOUT
+        </MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="double?" @bind-Value="_model.OverallGrade"
+                                 Label="Nota Geral" Variant="Variant.Outlined"
+                                 Min="0" Max="100" Format="F1"
+                                 HideSpinButtons="false" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="double?" @bind-Value="_model.CeilingGrade"
+                                 Label="Teto (Ceiling)" Variant="Variant.Outlined"
+                                 Min="0" Max="100" Format="F1" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="double?" @bind-Value="_model.FloorGrade"
+                                 Label="Piso (Floor)" Variant="Variant.Outlined"
+                                 Min="0" Max="100" Format="F1" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="int?" @bind-Value="_model.ProjectedRound"
+                           Label="Round Projetado" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var (val, lbl) in _rounds)
+                    {
+                        <MudSelectItem T="int?" Value="@val">@lbl</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="int?" @bind-Value="_model.ProjectedPick"
+                                 Label="Pick Projetado" Variant="Variant.Outlined"
+                                 Min="1" Max="260" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_model.NflComparison" Label="Comparação NFL"
+                              Variant="Variant.Outlined" FullWidth="true"
+                              Placeholder="ex: Patrick Mahomes" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Bio -->
+    <MudPaper Class="pa-6 mb-6" Elevation="0"
+              Style="background:#1C2128; border:1px solid rgba(230,237,243,0.08); border-radius:8px;">
+        <MudText Typo="Typo.subtitle2" Class="mb-4"
+                 Style="color:#4FC3F7; font-weight:600; letter-spacing:1px;">
+            BIO & NOTAS
+        </MudText>
+        <MudTextField @bind-Value="_model.Bio" Label="Bio" Variant="Variant.Outlined"
+                      Lines="4" FullWidth="true"
+                      Placeholder="Histórico, estilo de jogo, pontos fortes e fracos..." />
+    </MudPaper>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    }
+
+    <div class="d-flex gap-3 justify-end">
+        <MudButton OnClick="@(() => Nav.NavigateTo("/players"))" Variant="Variant.Text">
+            Cancelar
+        </MudButton>
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                   Color="Color.Primary" Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   Disabled="_saving">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Salvar Prospecto
+        </MudButton>
+    </div>
+</EditForm>
+
+@code {
+    private static readonly string[] _conferences =
+    [
+        "SEC", "Big Ten", "Big 12", "ACC", "Pac-12",
+        "Mountain West", "American", "Conference USA",
+        "MAC", "Sun Belt", "Independente"
+    ];
+
+    private static readonly (int? Value, string Label)[] _rounds =
+    [
+        (1, "1ª Rodada"), (2, "2ª Rodada"), (3, "3ª Rodada"),
+        (4, "4ª Rodada"), (5, "5ª Rodada"), (6, "6ª Rodada"), (7, "7ª Rodada"),
+    ];
+
+    private CreatePlayerRequest _model = new();
+    private int _heightFeet = 6;
+    private int _heightInches = 2;
+    private string? _error;
+    private bool _saving;
+    private List<CfbdSeasonData> _cfbdSeasons = [];
+
+    // CFBD import state
+    private string _cfbdSearch = "";
+    private List<CfbdPlayerResult> _cfbdResults = [];
+    private bool _cfbdSearching;
+    private bool _cfbdSearched;
+    private int _cfbdImporting;
+    private string _cfbdImportMessage = "";
+    private Severity _cfbdImportSeverity = Severity.Success;
+
+    private async Task SearchCfbd()
+    {
+        if (string.IsNullOrWhiteSpace(_cfbdSearch)) return;
+        _cfbdSearching = true;
+        _cfbdSearched = false;
+        _cfbdResults = [];
+        _cfbdImportMessage = "";
+        _cfbdResults = await Api.CfbdSearchAsync(_cfbdSearch);
+        _cfbdSearching = false;
+        _cfbdSearched = true;
+    }
+
+    private async Task ImportFromCfbd(CfbdPlayerResult player)
+    {
+        _cfbdImporting = player.Id;
+        _cfbdImportMessage = "";
+        var result = await Api.CfbdImportAsync(player.Name, player.Team);
+
+        if (result is null)
+        {
+            _cfbdImportMessage = "Não foi possível importar os dados. Tente preencher manualmente.";
+            _cfbdImportSeverity = Severity.Warning;
+            _cfbdImporting = 0;
+            return;
+        }
+
+        // Fill basic info
+        _model.Name = result.Player.Name;
+        _model.School = result.Player.Team;
+        _model.Conference = result.Player.Conference ?? _model.Conference;
+        if (result.Player.Jersey.HasValue) _model.JerseyNumber = result.Player.Jersey;
+        if (result.Player.Weight.HasValue) _model.WeightLbs = result.Player.Weight.Value;
+        if (result.Player.Height.HasValue)
+        {
+            _heightFeet = result.Player.Height.Value / 12;
+            _heightInches = result.Player.Height.Value % 12;
+        }
+        if (!string.IsNullOrEmpty(result.Player.Hometown))
+        {
+            var parts = result.Player.Hometown.Split(',');
+            _model.HomeTown = parts[0].Trim();
+            if (parts.Length > 1) _model.HomeState = parts[1].Trim();
+        }
+
+        // Import season stats into the model (first season as QBStats reference)
+        if (result.SeasonStats.Count > 0)
+        {
+            // Estimate draft class year from last season
+            var lastYear = result.SeasonStats.Max(s => s.Year);
+            _model.DraftClassYear = lastYear + 1;
+        }
+
+        _cfbdImportMessage = $"✓ {result.SeasonStats.Count} temporada(s) importada(s) com stats reais. Revise os campos abaixo.";
+        _cfbdImportSeverity = Severity.Success;
+        _cfbdResults = [];
+        _cfbdImporting = 0;
+
+        // Store CFBD seasons to be saved together with the player
+        _cfbdSeasons = result.SeasonStats;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Name) || string.IsNullOrWhiteSpace(_model.School))
+        {
+            _error = "Nome e Universidade são obrigatórios.";
+            return;
+        }
+
+        _saving = true;
+        _error = null;
+        _model.HeightInches = _heightFeet * 12 + _heightInches;
+
+        var result = await Api.CreatePlayerAsync(_model);
+        if (result is not null)
+        {
+            if (_cfbdSeasons.Count > 0)
+                await Api.CfbdImportStatsAsync(result.Id, _cfbdSeasons);
+            Nav.NavigateTo($"/players/{result.Id}");
+        }
+        else
+            _error = "Erro ao salvar o prospecto. Tente novamente.";
+
+        _saving = false;
+    }
+}

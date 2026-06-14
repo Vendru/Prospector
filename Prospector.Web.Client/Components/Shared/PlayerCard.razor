@@ -1,0 +1,125 @@
+@using Prospector.Web.Client.Models
+
+<MudPaper @onclick="OnClick" Class="pa-4 cursor-pointer player-card" Elevation="0"
+          Style="background: #1C2128; border: 1px solid rgba(230,237,243,0.08); border-radius:12px; transition: all 0.2s;">
+    <!-- Header -->
+    <div class="d-flex align-start justify-space-between mb-3">
+        <div class="d-flex align-center gap-3">
+            <MudAvatar Style="@($"width:48px; height:48px; font-size:1.1rem; font-weight:700; background: {AvatarBg}; color: #0D1117; flex-shrink:0;")">
+                @(Player.JerseyNumber.HasValue ? $"#{Player.JerseyNumber}" : Player.Name[..1])
+            </MudAvatar>
+            <div>
+                <MudText Typo="Typo.subtitle1" Style="font-weight:700; line-height:1.2;">@Player.Name</MudText>
+                <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.55);">
+                    @Player.School
+                </MudText>
+            </div>
+        </div>
+        <div class="d-flex flex-column align-end gap-1">
+            <MudChip T="string" Size="Size.Small" Style="@DraftChipStyle" Variant="Variant.Filled">
+                Draft @Player.DraftClassYear
+            </MudChip>
+            @if (Player.ProjectedRound.HasValue)
+            {
+                <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.45);">
+                    R@(Player.ProjectedRound) @(Player.ProjectedPick.HasValue ? $"Pick #{Player.ProjectedPick}" : "")
+                </MudText>
+            }
+        </div>
+    </div>
+
+    <!-- Grades row -->
+    <div class="d-flex gap-2 mb-4">
+        @if (Player.OverallGrade.HasValue)
+        {
+            <GradeBadge Grade="@Player.OverallGrade.Value" Label="OVR" />
+        }
+        @if (Player.CeilingGrade.HasValue)
+        {
+            <GradeBadge Grade="@Player.CeilingGrade.Value" Label="CEI" />
+        }
+        @if (Player.FloorGrade.HasValue)
+        {
+            <GradeBadge Grade="@Player.FloorGrade.Value" Label="FLR" />
+        }
+        @if (!string.IsNullOrEmpty(Player.NflComparison))
+        {
+            <MudSpacer />
+            <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.4); font-style:italic; align-self:center;">
+                @Player.NflComparison
+            </MudText>
+        }
+    </div>
+
+    <!-- Latest stats -->
+    @if (Player.LatestStats is { } s)
+    {
+        <div style="border-top: 1px solid rgba(230,237,243,0.08); padding-top:12px;">
+            <MudText Typo="Typo.caption" Class="mb-2" Style="color: rgba(230,237,243,0.4); letter-spacing:1px; font-size:0.62rem;">
+                TEMPORADA @s.Year · @s.GamesPlayed JOGOS
+            </MudText>
+            <MudGrid Spacing="0">
+                <MudItem xs="4">
+                    <div class="stat-mini">
+                        <MudText Typo="Typo.body2" Style="font-weight:700;">@s.CompletionPct.ToString("F0")%</MudText>
+                        <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.4);">COMP%</MudText>
+                    </div>
+                </MudItem>
+                <MudItem xs="4">
+                    <div class="stat-mini text-center">
+                        <MudText Typo="Typo.body2" Style="font-weight:700;">@s.PassingYards.ToString("N0")</MudText>
+                        <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.4);">YDS</MudText>
+                    </div>
+                </MudItem>
+                <MudItem xs="4">
+                    <div class="stat-mini text-end">
+                        <MudText Typo="Typo.body2" Style="font-weight:700;">
+                            <span style="color:#56D364;">@s.PassingTDs</span>/<span style="color:#F85149;">@s.Interceptions</span>
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.4);">TD/INT</MudText>
+                    </div>
+                </MudItem>
+            </MudGrid>
+            @if (s.Qbr.HasValue)
+            {
+                <div class="mt-2">
+                    <div class="d-flex justify-space-between mb-1">
+                        <MudText Typo="Typo.caption" Style="color: rgba(230,237,243,0.45);">QBR</MudText>
+                        <MudText Typo="Typo.caption" Style="font-weight:600;">@s.Qbr.Value.ToString("F1")</MudText>
+                    </div>
+                    <MudProgressLinear Value="@s.Qbr.Value" Max="100" Color="Color.Primary" Rounded="true" Size="Size.Small" />
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Compare toggle -->
+    <div class="d-flex justify-end mt-3" @onclick:stopPropagation="true">
+        <MudButton OnClick="OnCompare" Size="Size.Small" Variant="Variant.Outlined"
+                   Color="@(IsSelectedForCompare ? Color.Success : Color.Default)"
+                   StartIcon="@(IsSelectedForCompare ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.CompareArrows)">
+            @(IsSelectedForCompare ? "Selecionado" : "Comparar")
+        </MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public PlayerListDto Player { get; set; } = default!;
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback OnCompare { get; set; }
+    [Parameter] public bool IsSelectedForCompare { get; set; }
+
+    private string AvatarBg => Player.DraftClassYear switch
+    {
+        2025 => "linear-gradient(135deg, #4FC3F7, #0288D1)",
+        2026 => "linear-gradient(135deg, #FFB74D, #F57C00)",
+        _ => "linear-gradient(135deg, #56D364, #2EA043)"
+    };
+
+    private string DraftChipStyle => Player.DraftClassYear switch
+    {
+        2025 => "background: rgba(79,195,247,0.15); color: #4FC3F7; height:20px;",
+        2026 => "background: rgba(255,183,77,0.15); color: #FFB74D; height:20px;",
+        _ => "background: rgba(86,211,100,0.15); color: #56D364; height:20px;"
+    };
+}

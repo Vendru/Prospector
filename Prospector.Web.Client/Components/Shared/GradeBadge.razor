@@ -1,0 +1,42 @@
+@using Prospector.Web.Client.Models
+
+<div style="@ContainerStyle">
+    <div style="@ValueStyle">@Grade.ToString("F0")</div>
+    <div style="@LabelStyle">@Label</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public double Grade { get; set; }
+    [Parameter] public string Label { get; set; } = "OVR";
+    [Parameter] public bool Large { get; set; }
+
+    private string Color => Grade switch
+    {
+        >= 90 => "#56D364",
+        >= 80 => "#79C0FF",
+        >= 70 => "#FFB74D",
+        >= 60 => "#F0883E",
+        _ => "#F85149"
+    };
+
+    private string BgColor => Grade switch
+    {
+        >= 90 => "rgba(86,211,100,0.12)",
+        >= 80 => "rgba(121,192,255,0.12)",
+        >= 70 => "rgba(255,183,77,0.12)",
+        >= 60 => "rgba(240,136,62,0.12)",
+        _ => "rgba(248,81,73,0.12)"
+    };
+
+    private string ContainerStyle => Large
+        ? $"display:flex; flex-direction:column; align-items:center; background:{BgColor}; border: 1px solid {Color}40; border-radius:8px; padding:8px 14px; min-width:60px;"
+        : $"display:flex; flex-direction:column; align-items:center; background:{BgColor}; border: 1px solid {Color}40; border-radius:6px; padding:3px 8px; min-width:40px;";
+
+    private string ValueStyle => Large
+        ? $"font-size:1.6rem; font-weight:800; color:{Color}; line-height:1;"
+        : $"font-size:0.9rem; font-weight:700; color:{Color}; line-height:1.2;";
+
+    private string LabelStyle => Large
+        ? $"font-size:0.6rem; color:{Color}80; letter-spacing:1.5px; margin-top:2px; font-weight:600;"
+        : $"font-size:0.55rem; color:{Color}80; letter-spacing:1px; font-weight:600;";
+}

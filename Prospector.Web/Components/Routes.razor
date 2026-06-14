@@ -1,0 +1,65 @@
+@namespace Prospector.Web.Components.Server
+@using MudBlazor
+@using Prospector.Web.Client.Components.Layout
+
+<MudThemeProvider Theme="@_theme" IsDarkMode="true" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<Router AppAssembly="typeof(App).Assembly"
+        AdditionalAssemblies="@([typeof(Prospector.Web.Client.Components.Pages.Dashboard).Assembly])">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <MudText Typo="Typo.h6" Class="pa-4">Você não tem permissão para acessar esta página.</MudText>
+                }
+                else
+                {
+                    <RedirectToLogin />
+                }
+            </NotAuthorized>
+            <Authorizing>
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+            </Authorizing>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Página não encontrada</PageTitle>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8 text-center">
+                <MudText Typo="Typo.h1" Class="mb-4" Style="font-size:6rem; color:#4FC3F7;">404</MudText>
+                <MudText Typo="Typo.h5" Class="mb-4">Página não encontrada</MudText>
+                <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Voltar ao Dashboard</MudButton>
+            </MudContainer>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#4FC3F7",
+            PrimaryDarken = "#0288D1",
+            Secondary = "#FFB74D",
+            Background = "#0D1117",
+            Surface = "#1C2128",
+            DrawerBackground = "#161B22",
+            AppbarBackground = "#161B22",
+            TextPrimary = "#E6EDF3",
+            TextSecondary = "rgba(230,237,243,0.65)",
+            ActionDefault = "rgba(230,237,243,0.65)",
+            Divider = "rgba(230,237,243,0.12)",
+            Success = "#56D364",
+            Warning = "#FFB74D",
+            Error = "#F85149",
+            Info = "#79C0FF",
+            TableLines = "rgba(230,237,243,0.08)",
+            LinesDefault = "rgba(230,237,243,0.12)",
+        }
+    };
+}
