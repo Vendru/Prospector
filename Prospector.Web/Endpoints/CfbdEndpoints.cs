@@ -16,9 +16,9 @@ public static class CfbdEndpoints
             return Results.Ok(results);
         });
 
-        group.MapGet("/import", async (string playerName, string team, CfbdService svc) =>
+        group.MapGet("/import", async (int cfbdId, string playerName, string team, CfbdService svc) =>
         {
-            var result = await svc.GetImportDataAsync(playerName, team);
+            var result = await svc.GetImportDataAsync(cfbdId, playerName, team);
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
     }

@@ -291,7 +291,7 @@
     {
         _cfbdImporting = player.Id;
         _cfbdImportMessage = "";
-        var result = await Api.CfbdImportAsync(player.Name, player.Team);
+        var result = await Api.CfbdImportAsync(player.Id, player.Name, player.Team);
 
         if (result is null)
         {

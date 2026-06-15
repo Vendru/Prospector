@@ -58,12 +58,12 @@ public class PlayerApiService(HttpClient http)
         catch { return []; }
     }
 
-    public async Task<CfbdImportResult?> CfbdImportAsync(string playerName, string team)
+    public async Task<CfbdImportResult?> CfbdImportAsync(int cfbdId, string playerName, string team)
     {
         try
         {
             return await http.GetFromJsonAsync<CfbdImportResult>(
-                $"/api/cfbd/import?playerName={Uri.EscapeDataString(playerName)}&team={Uri.EscapeDataString(team)}");
+                $"/api/cfbd/import?cfbdId={cfbdId}&playerName={Uri.EscapeDataString(playerName)}&team={Uri.EscapeDataString(team)}");
         }
         catch { return null; }
     }
