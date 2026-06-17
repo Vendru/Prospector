@@ -34,6 +34,21 @@ Acesse `http://localhost:5000` no navegador.
 O banco de dados SQLite (`prospector.db`) é criado e populado automaticamente
 na primeira execução com **10 prospects QB** e **2 usuários demo**.
 
+## Integração com College Football Data API (opcional)
+
+A importação de estatísticas reais de QBs utiliza a [College Football Data API](https://collegefootballdata.com) (gratuita).
+
+Para habilitá-la:
+
+1. Registre-se em [collegefootballdata.com](https://collegefootballdata.com) e obtenha sua API key gratuita
+2. Copie o arquivo de exemplo:
+   ```bash
+   cp Prospector.Web/appsettings.Development.json.example Prospector.Web/appsettings.Development.json
+   ```
+3. Substitua `SUA_CHAVE_AQUI` pela sua key no arquivo criado
+
+Sem essa configuração o app funciona normalmente — os 10 prospects do seed já incluem stats. A integração é necessária apenas para importar novos jogadores.
+
 ## Usuários Demo
 
 | Email | Senha | Perfil |
